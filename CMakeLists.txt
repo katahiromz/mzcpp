@@ -43,13 +43,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
 ##############################################################################
-# use C++11
-
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_definitions(-std=c++11)
-endif()
-
-##############################################################################
 
 add_executable(mzcpp mzcpp.cpp)
 target_link_libraries(mzcpp ${Boost_LIBRARIES})

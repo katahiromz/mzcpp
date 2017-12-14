@@ -15,7 +15,7 @@
 
 void show_version(void)
 {
-    std::cout << "mzcpp 0.4 by katahiromz 2017.12.14" << std::endl;
+    std::cout << "mzcpp 0.5 by katahiromz 2017.12.14" << std::endl;
 }
 
 void show_help(void)
