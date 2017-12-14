@@ -1,4 +1,5 @@
 // mzcpp.cpp --- katahiromz's C preprocessor
+// Copyright (C) 2017 Katayama Hirofumi MZ. License: MIT
 #include "predefined.h"
 
 #include <boost/wave.hpp>
@@ -14,7 +15,7 @@
 
 void show_version(void)
 {
-    std::cout << "mzcpp 0.0 by katahiromz 2017.12.13" << std::endl;
+    std::cout << "mzcpp 0.1 by katahiromz 2017.12.14" << std::endl;
 }
 
 void show_help(void)
@@ -28,7 +29,7 @@ void show_help(void)
         "  -Ipath         Adds include path\n"
         "  -Spath         Adds system include path\n"
         "  -o output.txt  Sets output file\n"
-        "  -dM            Output macro definitions" << std::endl;
+        "  -dM            Print macro definitions" << std::endl;
 }
 
 template <typename T_CONTEXT>
@@ -229,7 +230,7 @@ void print_definitions(WaveContext& context)
     for (it = context.macro_names_begin(); it != end; ++it)
     {
         if (!context.get_macro_definition(*it, is_function, is_predef, pos,
-                                      params, tokens) || is_predef)
+                                          params, tokens) || is_predef)
         {
             continue;
         }
