@@ -2,8 +2,6 @@ a.txt
 a.exe
 *.o
 *.obj
-injector.exe
-mydll.dll
 *.res
 *.tds
 Debug
@@ -24,7 +22,6 @@ Makefile
 *.tr2
 *.td2
 *.ncb
-TMP1.$$$
 *.filters
 *.sdf
 *.opensdf
