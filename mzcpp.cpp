@@ -15,7 +15,7 @@
 
 void show_version(void)
 {
-    std::cout << "mzcpp 0.5 by katahiromz 2017.12.14" << std::endl;
+    std::cout << "mzcpp 0.6 by katahiromz 2017.12.15" << std::endl;
 }
 
 void show_help(void)
@@ -157,20 +157,26 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv,
         }
     #endif
 #else   // ndef _WIN32
-    const char *path1 = getenv("CPATH");
-    const char *path2 = getenv("C_INCLUDE_PATH");
-    const char *path3 = getenv("CPLUS_INCLUDE_PATH");
+    const char *path1 = getenv("CPATH"), path2 = NULL, path3 = NULL;
     if (path1)
     {
         context.add_sysinclude_path(path1);
     }
-    if (path2)
+    if (language == "c" || language == "rc")
     {
-        context.add_sysinclude_path(path2);
+        path2 = getenv("C_INCLUDE_PATH");
+        if (path2)
+        {
+            context.add_sysinclude_path(path2);
+        }
     }
-    else if (path3)
+    else if (language == "c++")
     {
-        context.add_sysinclude_path(path3);
+        path3 = getenv("CPLUS_INCLUDE_PATH");
+        if (path3)
+        {
+            context.add_sysinclude_path(path3);
+        }
     }
     if (!path1 && !path2 && !path3)
     {
