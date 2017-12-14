@@ -18,4 +18,9 @@ XSTRINGIFY(DEF)
     #endif
 #endif
 
+#define XXX 111
+#define YYY XXX
+#define ZZZ YYY + 1
+#define WWW(x) x + XXX
+
 #include <stdio.h>
