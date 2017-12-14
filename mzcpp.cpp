@@ -15,7 +15,7 @@
 
 void show_version(void)
 {
-    std::cout << "mzcpp 0.1 by katahiromz 2017.12.14" << std::endl;
+    std::cout << "mzcpp 0.2 by katahiromz 2017.12.14" << std::endl;
 }
 
 void show_help(void)
@@ -29,7 +29,8 @@ void show_help(void)
         "  -Ipath         Adds include path\n"
         "  -Spath         Adds system include path\n"
         "  -o output.txt  Sets output file\n"
-        "  -dM            Print macro definitions" << std::endl;
+        "  -dM            Prints macro definitions\n"
+        "  -oM macros.txt Sets macro output file" << std::endl;
 }
 
 template <typename T_CONTEXT>
@@ -59,6 +60,11 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv)
             std::string str = argv[i];
             if (str == "-dM")
                 continue;
+            if (str == "-o" || str == "-oM")
+            {
+                ++i;
+                continue;
+            }
 
             switch (argv[i][1])
             {
@@ -73,9 +79,6 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv)
                 break;
             case 'S':
                 context.add_sysinclude_path(&(argv[i][2]));
-                break;
-            case 'o':
-                ++i;
                 break;
             default:
                 std::cerr << "ERROR: invalid argument '" << str << "'\n";
@@ -219,7 +222,8 @@ std::string get_position_str(const typename token_type::position_type& pos)
     return str;
 }
 
-void print_definitions(WaveContext& context)
+template <class CharT, class Traits>
+void print_definitions(WaveContext& context, std::basic_ostream<CharT, Traits>& out)
 {
     bool is_function, is_predef;
     WaveContext::position_type pos;
@@ -235,32 +239,32 @@ void print_definitions(WaveContext& context)
             continue;
         }
 
-        std::cout << get_position_str(pos) << ": #define " << *it;
+        out << get_position_str(pos) << ": #define " << *it;
         if (is_function)
         {
-            std::cout << "(";
+            out << "(";
             std::vector<WaveContext::token_type>::iterator it, end = params.end();
             it = params.begin();
             if (it != end)
             {
-                std::cout << it->get_value();
+                out << it->get_value();
                 ++it;
                 for (; it != end; ++it)
                 {
-                    std::cout << "," << it->get_value();
+                    out << "," << it->get_value();
                 }
             }
-            std::cout << ")";
+            out << ")";
         }
-        std::cout << " ";
+        out << " ";
         {
             WaveContext::token_sequence_type::iterator it, end = tokens.end();
             for (it = tokens.begin(); it != end; ++it)
             {
-                std::cout << it->get_value();
+                out << it->get_value();
             }
         }
-        std::cout << "\n";
+        out << "\n";
     }
 }
 
@@ -278,7 +282,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    std::string input_file, output_file;
+    std::string input_file, output_file, macro_output_file;
     bool emit_definitions = false;
     for (int i = 1; i < argc; ++i)
     {
@@ -297,28 +301,33 @@ int main(int argc, char **argv)
         }
         else if (arg == "-o")
         {
-            if (output_file.empty())
+            if (i + 1 < argc)
             {
-                if (i + 1 < argc)
-                {
-                    output_file = argv[i + 1];
-                    ++i;
-                }
-                else
-                {
-                    std::cerr << "ERROR: No argument specified for '-o'\n";
-                    return 10;
-                }
+                output_file = argv[i + 1];
+                ++i;
             }
             else
             {
-                std::cerr << "ERROR: multiple output files specified\n";
-                return 3;
+                std::cerr << "ERROR: No argument specified for '-o'\n";
+                return 10;
             }
         }
         else if (arg == "-dM")
         {
             emit_definitions = true;
+        }
+        else if (arg == "-oM")
+        {
+            if (i + 1 < argc)
+            {
+                macro_output_file = argv[i + 1];
+                ++i;
+            }
+            else
+            {
+                std::cerr << "ERROR: No argument specified for '-oM'\n";
+                return 10;
+            }
         }
     }
 
@@ -368,7 +377,20 @@ int main(int argc, char **argv)
 
         if (emit_definitions)
         {
-            print_definitions(context);
+            if (macro_output_file.empty())
+            {
+                print_definitions(context, std::cout);
+            }
+            else
+            {
+                std::ofstream fout(macro_output_file);
+                if (!fout.is_open())
+                {
+                    std::cerr << "ERROR: cannot open file '" << macro_output_file << "'\n";
+                    return 7;
+                }
+                print_definitions(context, fout);
+            }
         }
     }
     catch (const boost::wave::cpp_exception& ex)
