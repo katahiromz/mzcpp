@@ -15,7 +15,7 @@
 
 void show_version(void)
 {
-    std::cout << "mzcpp 0.3 by katahiromz 2017.12.14" << std::endl;
+    std::cout << "mzcpp 0.4 by katahiromz 2017.12.14" << std::endl;
 }
 
 void show_help(void)
@@ -23,15 +23,16 @@ void show_help(void)
     std::cout <<
         "Usage: cpp [options] input-file.h\n"
         "Options:\n"
-        "  -Dmacro        Defines a macro\n"
-        "  -Dmacro=def    Defines a macro\n"
-        "  -Umacro        Undefines a macro\n"
-        "  -Ipath         Adds include path\n"
-        "  -Spath         Adds system include path\n"
-        "  -o output.txt  Sets output file\n"
-        "  -L language    Sets language ('c', 'c++', or 'rc')\n"
-        "  -dM            Prints macro definitions\n"
-        "  -oM macros.txt Sets macro output file" << std::endl;
+        "  -Dmacro           Defines a macro\n"
+        "  -Dmacro=def       Defines a macro\n"
+        "  -Umacro           Undefines a macro\n"
+        "  -Ipath            Adds include path\n"
+        "  -Spath            Adds system include path\n"
+        "  -o output.txt     Sets output file\n"
+        "  -x language       Sets language ('c', 'c++' or 'rc')\n"
+        "  -dM               Prints macro definitions\n"
+        "  -oM macros.txt    Sets macro output file\n"
+        "  -E                Ignored" << std::endl;
 }
 
 enum EXITCODE
@@ -45,24 +46,52 @@ enum EXITCODE
 
 
 template <typename T_CONTEXT>
-bool setup_context(T_CONTEXT& context, int argc, char **argv)
+bool setup_context(T_CONTEXT& context, int argc, char **argv,
+                   const std::string& language)
 {
     using namespace boost;
 
-    // Language options
-    context.set_language(
-        wave::language_support(
-            wave::support_cpp |
-            wave::support_option_variadics |
-            wave::support_option_long_long |
-            wave::support_option_emit_contnewlines |
-            wave::support_option_insert_whitespace |
-            wave::support_option_no_character_validation |
-            wave::support_option_convert_trigraphs |
-            wave::support_option_single_line |
-            wave::support_option_emit_line_directives |
-            wave::support_option_include_guard_detection |
-            wave::support_option_emit_pragma_directives));
+    if (language == "c++")
+    {
+        context.set_language(
+            wave::language_support(
+#if __cplusplus >= 201103L
+                wave::support_cpp11 |
+#else
+                wave::support_cpp |
+#endif
+                wave::support_option_variadics |
+                wave::support_option_long_long |
+                wave::support_option_emit_contnewlines |
+                wave::support_option_insert_whitespace |
+                wave::support_option_no_character_validation |
+                wave::support_option_convert_trigraphs |
+                wave::support_option_single_line |
+                wave::support_option_emit_line_directives |
+                wave::support_option_include_guard_detection |
+                wave::support_option_emit_pragma_directives));
+    }
+    else if (language == "c" || language == "rc")
+    {
+        context.set_language(
+            wave::language_support(
+                wave::support_c99 |
+                wave::support_option_variadics |
+                wave::support_option_long_long |
+                wave::support_option_emit_contnewlines |
+                wave::support_option_insert_whitespace |
+                wave::support_option_no_character_validation |
+                wave::support_option_convert_trigraphs |
+                wave::support_option_single_line |
+                wave::support_option_emit_line_directives |
+                wave::support_option_include_guard_detection |
+                wave::support_option_emit_pragma_directives));
+    }
+
+    if (language == "rc")
+    {
+        context.add_macro_definition("RC_INVOKED=1", true);
+    }
 
     add_predefined_macros(context);
 
@@ -73,7 +102,7 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv)
             std::string str = argv[i];
             if (str == "-dM")
                 continue;
-            if (str == "-o" || str == "-oM" || str == "-L")
+            if (str == "-o" || str == "-oM" || str == "-x")
             {
                 ++i;
                 continue;
@@ -92,6 +121,9 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv)
                 break;
             case 'S':
                 context.add_sysinclude_path(&(argv[i][2]));
+                break;
+            case 'E':
+                // ignored
                 break;
             default:
                 std::cerr << "ERROR: invalid argument '" << str << "'\n";
@@ -163,7 +195,7 @@ public:
             if (!fs)
             {
                 std::string msg = "Cannot open file '";
-                msg += (filePath == nullptr) ? "(nullptr)" : filePath;
+                msg += (filePath == NULL) ? "(null)" : filePath;
                 msg += "'.";
                 throw std::runtime_error(msg.c_str());
             }
@@ -344,7 +376,7 @@ int main(int argc, char **argv)
                 return EXITCODE_INVALIDARG;
             }
         }
-        else if (arg == "-L")
+        else if (arg == "-x")
         {
             if (i + 1 < argc)
             {
@@ -352,20 +384,25 @@ int main(int argc, char **argv)
                 _strlwr(&language[0]);
                 if (language != "c" && language != "c++" && language != "rc")
                 {
-                    std::cerr << "ERROR: Invalid argument specified for '-L'\n";
+                    std::cerr << "ERROR: Invalid argument '" << language <<
+                                 "' specified for '-x'\n";
                     return EXITCODE_INVALIDARG;
                 }
                 ++i;
             }
             else
             {
-                std::cerr << "ERROR: No argument specified for '-L'\n";
+                std::cerr << "ERROR: No argument specified for '-x'\n";
                 return EXITCODE_INVALIDARG;
             }
         }
         else if (arg == "-dM")
         {
             emit_definitions = true;
+        }
+        else if (arg == "-E")
+        {
+            // ignored
         }
     }
 
@@ -385,7 +422,7 @@ int main(int argc, char **argv)
     // Prepare context
     WaveContext context(code.begin(), code.end(), input_file.c_str());
 
-    if (!setup_context(context, argc, argv))
+    if (!setup_context(context, argc, argv, language))
         return EXITCODE_INVALIDARG;
 
     try
