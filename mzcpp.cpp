@@ -71,7 +71,7 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv,
                 wave::support_option_include_guard_detection |
                 wave::support_option_emit_pragma_directives));
     }
-    else if (language == "c" || language == "rc")
+    else
     {
         context.set_language(
             wave::language_support(
