@@ -15,7 +15,7 @@
 
 void show_version(void)
 {
-    std::cout << "mzcpp 0.2 by katahiromz 2017.12.14" << std::endl;
+    std::cout << "mzcpp 0.3 by katahiromz 2017.12.14" << std::endl;
 }
 
 void show_help(void)
@@ -29,9 +29,20 @@ void show_help(void)
         "  -Ipath         Adds include path\n"
         "  -Spath         Adds system include path\n"
         "  -o output.txt  Sets output file\n"
+        "  -L language    Sets language ('c', 'c++', or 'rc')\n"
         "  -dM            Prints macro definitions\n"
         "  -oM macros.txt Sets macro output file" << std::endl;
 }
+
+enum EXITCODE
+{
+    EXITCODE_SUCCESS = 0,
+    EXITCODE_INVALIDARG,
+    EXITCODE_NOINPUT,
+    EXITCODE_CANTOPENFILE,
+    EXITCODE_FAILPROCESS
+};
+
 
 template <typename T_CONTEXT>
 bool setup_context(T_CONTEXT& context, int argc, char **argv)
@@ -41,7 +52,9 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv)
     // Language options
     context.set_language(
         wave::language_support(
-            wave::support_c99 |
+            wave::support_cpp |
+            wave::support_option_variadics |
+            wave::support_option_long_long |
             wave::support_option_emit_contnewlines |
             wave::support_option_insert_whitespace |
             wave::support_option_no_character_validation |
@@ -60,7 +73,7 @@ bool setup_context(T_CONTEXT& context, int argc, char **argv)
             std::string str = argv[i];
             if (str == "-dM")
                 continue;
-            if (str == "-o" || str == "-oM")
+            if (str == "-o" || str == "-oM" || str == "-L")
             {
                 ++i;
                 continue;
@@ -173,7 +186,7 @@ public:
             try
             {
                 context_it.code = readFile(context_it.filename.c_str());
-                context_it.code += "\n";
+                context_it.code += '\n';    // avoid errors
             }
             catch (const std::exception&)
             {
@@ -270,19 +283,25 @@ void print_definitions(WaveContext& context, std::basic_ostream<CharT, Traits>& 
 
 int main(int argc, char **argv)
 {
-    if (argc < 2 || std::strcmp(argv[1], "--help") == 0)
+    if (argc < 2)
     {
         show_help();
-        return 1;
+        return EXITCODE_INVALIDARG;
     }
 
-    if (std::strcmp(argv[1], "--version") == 0)
+    std::string arg1 = argv[1];
+    if (arg1 == "--help")
+    {
+        show_help();
+        return EXITCODE_SUCCESS;
+    }
+    if (arg1 == "--version")
     {
         show_version();
-        return 1;
+        return EXITCODE_SUCCESS;
     }
 
-    std::string input_file, output_file, macro_output_file;
+    std::string input_file, output_file, macro_output_file, language;
     bool emit_definitions = false;
     for (int i = 1; i < argc; ++i)
     {
@@ -296,7 +315,7 @@ int main(int argc, char **argv)
             else
             {
                 std::cerr << "ERROR: multiple input files specified\n";
-                return 2;
+                return EXITCODE_INVALIDARG;
             }
         }
         else if (arg == "-o")
@@ -309,12 +328,8 @@ int main(int argc, char **argv)
             else
             {
                 std::cerr << "ERROR: No argument specified for '-o'\n";
-                return 10;
+                return EXITCODE_INVALIDARG;
             }
-        }
-        else if (arg == "-dM")
-        {
-            emit_definitions = true;
         }
         else if (arg == "-oM")
         {
@@ -326,15 +341,38 @@ int main(int argc, char **argv)
             else
             {
                 std::cerr << "ERROR: No argument specified for '-oM'\n";
-                return 10;
+                return EXITCODE_INVALIDARG;
             }
+        }
+        else if (arg == "-L")
+        {
+            if (i + 1 < argc)
+            {
+                language = argv[i + 1];
+                _strlwr(&language[0]);
+                if (language != "c" && language != "c++" && language != "rc")
+                {
+                    std::cerr << "ERROR: Invalid argument specified for '-L'\n";
+                    return EXITCODE_INVALIDARG;
+                }
+                ++i;
+            }
+            else
+            {
+                std::cerr << "ERROR: No argument specified for '-L'\n";
+                return EXITCODE_INVALIDARG;
+            }
+        }
+        else if (arg == "-dM")
+        {
+            emit_definitions = true;
         }
     }
 
     if (input_file.empty())
     {
         std::cerr << "ERROR: No input file\n";
-        return 4;
+        return EXITCODE_NOINPUT;
     }
 
     // Load source
@@ -342,12 +380,13 @@ int main(int argc, char **argv)
     fin.unsetf(std::ios::skipws);
     std::string code(std::istreambuf_iterator<char>(fin.rdbuf()),
                      std::istreambuf_iterator<char>());
+    code += '\n';   // avoid errors
 
     // Prepare context
     WaveContext context(code.begin(), code.end(), input_file.c_str());
 
     if (!setup_context(context, argc, argv))
-        return 3;
+        return EXITCODE_INVALIDARG;
 
     try
     {
@@ -365,7 +404,7 @@ int main(int argc, char **argv)
             if (!fout.is_open())
             {
                 std::cerr << "ERROR: cannot open file '" << output_file << "'\n";
-                return 5;
+                return EXITCODE_CANTOPENFILE;
             }
 
             WaveContext::iterator_type it, end = context.end();
@@ -387,7 +426,7 @@ int main(int argc, char **argv)
                 if (!fout.is_open())
                 {
                     std::cerr << "ERROR: cannot open file '" << macro_output_file << "'\n";
-                    return 7;
+                    return EXITCODE_CANTOPENFILE;
                 }
                 print_definitions(context, fout);
             }
@@ -397,8 +436,8 @@ int main(int argc, char **argv)
     {
         std::cerr << ex.file_name() << ":" << ex.line_no() << ": " <<
                      ex.description() << std::endl;
-        return 6;
+        return EXITCODE_FAILPROCESS;
     }
 
-    return 0;
+    return EXITCODE_SUCCESS;
 }
