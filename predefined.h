@@ -1,3 +1,4 @@
+/* automatically generated from predefined.txt */
 #define STRINGIFY(x) #x
 #define XSTRINGIFY(x) STRINGIFY(x)
 
